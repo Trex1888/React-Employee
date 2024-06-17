@@ -1,151 +1,188 @@
-import React, { Fragment, useEffect, useState } from "react";
-import Table from "react-bootstrap/Table";
-import Button from "react-bootstrap/Button";
-import Modal from "react-bootstrap/Modal";
-import Container from "react-bootstrap/Container";
-import Row from "react-bootstrap/Row";
-import Col from "react-bootstrap/Col";
-import Spinner from "react-bootstrap/Spinner";
-import "bootstrap/dist/css/bootstrap.min.css";
-
-const dataText = [
-  {
-    id: 1,
-    name: "Joe",
-    age: 45,
-    isActive: 1,
-  },
-];
+import React, { useState, useEffect } from "react";
+import axios from "axios";
+import {
+  Button,
+  Table,
+  Spinner,
+  Container,
+  Row,
+  Col,
+  Modal,
+} from "react-bootstrap";
+import { toast, ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 
 const Employee = () => {
   const [data, setData] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [show, setShow] = useState(false);
-  const [addFormData, setAddFormData] = useState({
-    name: "",
-    age: 0,
-    isActive: 0,
-  });
-  const [editFormData, setEditFormData] = useState({
+  const [currentFormData, setCurrentFormData] = useState({
     id: null,
     name: "",
-    age: 0,
+    age: "",
     isActive: 0,
   });
 
   useEffect(() => {
     setTimeout(() => {
-      setData(dataText);
+      getData();
     }, 1000);
   }, []);
 
   const handleClose = () => setShow(false);
   const handleShow = (employee) => {
-    setEditFormData(employee);
+    setCurrentFormData(employee);
     setShow(true);
   };
 
-  const handleAddFormChange = (e) => {
+  const handleFormChange = (e) => {
     const { name, value, type, checked } = e.target;
-    setAddFormData({
-      ...addFormData,
-      [name]: type === "checkbox" ? (checked ? 1 : 0) : value,
+    let newValue = type === "checkbox" ? (checked ? 1 : 0) : value;
+
+    if (name === "age") {
+      newValue = Math.min(parseInt(newValue, 10), 120);
+    }
+
+    setCurrentFormData({
+      ...currentFormData,
+      [name]: newValue,
     });
   };
 
-  const handleEditFormChange = (e) => {
-    const { name, value, type, checked } = e.target;
-    setEditFormData({
-      ...editFormData,
-      [name]: type === "checkbox" ? (checked ? 1 : 0) : value,
-    });
-  };
-
-  const isAddFormValid = () => {
-    return addFormData.name.length >= 2 && addFormData.age >= 0;
-  };
-
-  const isEditFormValid = () => {
-    return editFormData.name.length >= 2 && editFormData.age >= 0;
+  const getData = () => {
+    axios
+      .get(`https://localhost:7239/api/Employee`)
+      .then((result) => {
+        setData(result.data);
+        setLoading(false);
+      })
+      .catch((error) => {
+        console.log(error);
+        setLoading(false);
+      });
   };
 
   const handleAddSubmit = () => {
-    if (isAddFormValid()) {
-      const newEmployee = { ...addFormData, id: data.length + 1 };
-      setData([...data, newEmployee]);
-      setAddFormData({ name: "", age: 0, isActive: 0 });
-    }
+    const url = `https://localhost:7239/api/Employee`;
+    const newEmployee = {
+      name: currentFormData.name,
+      age: parseInt(currentFormData.age, 10),
+      isActive: currentFormData.isActive,
+    };
+
+    axios
+      .post(url, newEmployee)
+      .then((result) => {
+        console.log(result.data);
+        toast.success("Employee has been added!");
+        getData();
+        setCurrentFormData({ id: null, name: "", age: "", isActive: 0 });
+      })
+      .catch((error) => {
+        console.error(
+          "There was an error adding the employee!",
+          error.response.data
+        );
+      });
   };
 
   const handleEditSubmit = () => {
-    if (isEditFormValid()) {
-      const updatedData = data.map((item) =>
-        item.id === editFormData.id ? editFormData : item
-      );
-      setData(updatedData);
-      handleClose();
-    }
+    const url = `https://localhost:7239/api/Employee/${currentFormData.id}`;
+    const updatedEmployee = {
+      ...currentFormData,
+      age: parseInt(currentFormData.age, 10),
+    };
+
+    axios
+      .put(url, updatedEmployee)
+      .then((result) => {
+        console.log("Updated Employee:", updatedEmployee);
+        toast.success("Employee has been updated!");
+        getData();
+        handleClose();
+        setCurrentFormData({ id: null, name: "", age: "", isActive: 0 });
+      })
+      .catch((error) => {
+        console.error(
+          "There was an error updating the employee!",
+          error.response.data
+        );
+      });
   };
 
   const handleDelete = (id) => {
+    const url = `https://localhost:7239/api/Employee/${id}`;
     if (window.confirm("Are you sure you want to delete this employee?")) {
-      const updatedData = data.filter((item) => item.id !== id);
-      setData(updatedData);
+      axios
+        .delete(url)
+        .then((result) => {
+          console.log("Deleted Employee ID:", id);
+          toast.success("Employee has been deleted!");
+          getData();
+        })
+        .catch((error) => {
+          console.error(
+            "There was an error deleting the employee!",
+            error.response.data
+          );
+        });
     }
   };
 
+  const isFormValid = () => {
+    return currentFormData.name.length >= 2 && currentFormData.age >= 0;
+  };
   return (
-    <Fragment>
-      <Container>
-        <Row className="mb-3">
-          <Col xs={4}>
-            <input
-              type="text"
-              className="form-control"
-              placeholder="Enter Name"
-              name="name"
-              value={addFormData.name}
-              onChange={handleAddFormChange}
-              required
-            />
-          </Col>
-          <Col xs={3}>
-            <input
-              type="number"
-              className="form-control"
-              placeholder="Enter Age"
-              name="age"
-              value={addFormData.age}
-              onChange={handleAddFormChange}
-              min={0}
-              required
-            />
-          </Col>
-          <Col
-            xs={3}
-            className="d-flex align-items-center justify-content-end pe-4"
+    <Container>
+      <ToastContainer />
+      <Row className="mb-3">
+        <Col xs={4}>
+          <input
+            type="text"
+            className="form-control"
+            placeholder="Enter Name"
+            name="name"
+            value={currentFormData.name}
+            onChange={handleFormChange}
+            required
+          />
+        </Col>
+        <Col xs={3}>
+          <input
+            type="text"
+            className="form-control"
+            placeholder="Enter Age"
+            name="age"
+            value={currentFormData.age}
+            onChange={handleFormChange}
+            min={0}
+            required
+          />
+        </Col>
+
+        <Col
+          xs={3}
+          className="d-flex align-items-center justify-content-end pe-4"
+        >
+          <input
+            type="checkbox"
+            name="isActive"
+            checked={currentFormData.isActive === 1}
+            onChange={handleFormChange}
+            className="me-2"
+          />
+          <label className="mb-0">IsActive</label>
+        </Col>
+        <Col xs={2}>
+          <Button
+            className="btn btn-primary"
+            onClick={handleAddSubmit}
+            disabled={!isFormValid()}
           >
-            <input
-              type="checkbox"
-              name="isActive"
-              checked={addFormData.isActive === 1}
-              onChange={handleAddFormChange}
-              className="me-2"
-            />
-            <label className="mb-0">IsActive</label>
-          </Col>
-          <Col xs={2}>
-            <Button
-              className="btn btn-primary"
-              onClick={handleAddSubmit}
-              disabled={!isAddFormValid()}
-            >
-              Submit
-            </Button>
-          </Col>
-        </Row>
-      </Container>
-      <br />
-      <br />
+            Submit
+          </Button>
+        </Col>
+      </Row>
       <Table striped bordered hover>
         <thead>
           <tr>
@@ -157,7 +194,17 @@ const Employee = () => {
           </tr>
         </thead>
         <tbody>
-          {data && data.length > 0 ? (
+          {loading ? (
+            <tr>
+              <td colSpan="5">
+                <div className="text-center">
+                  <Spinner animation="border" role="status">
+                    <span className="visually-hidden">Loading...</span>
+                  </Spinner>
+                </div>
+              </td>
+            </tr>
+          ) : data && data.length > 0 ? (
             data.map((item) => (
               <tr key={item.id}>
                 <td>{item.id}</td>
@@ -167,7 +214,7 @@ const Employee = () => {
                 <td>
                   <Button
                     onClick={() => handleShow(item)}
-                    className="btn btn-primary"
+                    className="btn btn-primary me-2"
                   >
                     Edit
                   </Button>
@@ -182,18 +229,13 @@ const Employee = () => {
             ))
           ) : (
             <tr>
-              <td colSpan="5">
-                <div className="text-center">
-                  <Spinner animation="border" role="status">
-                    <span className="visually-hidden">Loading...</span>
-                  </Spinner>
-                </div>
+              <td colSpan="5" className="text-center">
+                No data available
               </td>
             </tr>
           )}
         </tbody>
       </Table>
-
       <Modal show={show} onHide={handleClose}>
         <Modal.Header closeButton>
           <Modal.Title>Update Employee</Modal.Title>
@@ -206,9 +248,8 @@ const Employee = () => {
                 className="form-control"
                 placeholder="Enter Name"
                 name="name"
-                value={editFormData.name}
-                onChange={handleEditFormChange}
-                minLength={2}
+                value={currentFormData.name}
+                onChange={handleFormChange}
                 required
               />
             </Col>
@@ -218,9 +259,10 @@ const Employee = () => {
                 className="form-control"
                 placeholder="Enter Age"
                 name="age"
-                value={editFormData.age}
-                onChange={handleEditFormChange}
+                value={currentFormData.age}
+                onChange={handleFormChange}
                 min={0}
+                max={120}
                 required
               />
             </Col>
@@ -228,8 +270,8 @@ const Employee = () => {
               <input
                 type="checkbox"
                 name="isActive"
-                checked={editFormData.isActive === 1}
-                onChange={handleEditFormChange}
+                checked={currentFormData.isActive === 1}
+                onChange={handleFormChange}
                 className="me-2"
               />
               <label className="mb-0">IsActive</label>
@@ -243,13 +285,13 @@ const Employee = () => {
           <Button
             variant="primary"
             onClick={handleEditSubmit}
-            disabled={!isEditFormValid()}
+            disabled={!isFormValid()}
           >
             Save Changes
           </Button>
         </Modal.Footer>
       </Modal>
-    </Fragment>
+    </Container>
   );
 };
 
